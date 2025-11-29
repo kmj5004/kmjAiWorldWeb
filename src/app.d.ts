@@ -12,7 +12,6 @@ declare global {
 
 export {};
 
-// Vite 환경변수 타입 선언 (프런트엔드에서 사용)
 interface ImportMetaEnv {
     readonly VITE_API_BASE?: string;
 }

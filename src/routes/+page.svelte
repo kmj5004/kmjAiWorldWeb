@@ -5,11 +5,7 @@
 	let isLoading = false;
 	let error: string | null = null;
 
-	// API 베이스 URL (환경변수 우선)
 	const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
-
-	// 네트워크 선택 (1/2/3)
-	let selectedNetwork: '1' | '2' | '3' = '1';
 
 	async function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -23,13 +19,11 @@
 			return;
 		}
 
-		// Reset states
 		prediction = null;
 		error = null;
 		isLoading = true;
 		downscaledImageUrl = null;
 
-		// Create a URL for the original image to display it
 		originalImageUrl = URL.createObjectURL(file);
 
 		try {
@@ -61,15 +55,28 @@
 						return reject(new Error('Canvas 컨텍스트를 가져올 수 없습니다.'));
 					}
 
+					// 흰색 배경으로 채우기
+					ctx.fillStyle = 'white';
+					ctx.fillRect(0, 0, 28, 28);
+					
 					ctx.drawImage(img, 0, 0, 28, 28);
 					const imageData = ctx.getImageData(0, 0, 28, 28).data;
 
 					const normalizedPixels: number[] = [];
 					for (let i = 0; i < imageData.length; i += 4) {
 						const grayscale = (imageData[i] + imageData[i + 1] + imageData[i + 2]) / 3;
-						// Invert the pixel value: 1.0 (black) - 0.0 (white)
 						normalizedPixels.push(1.0 - grayscale / 255.0);
 					}
+
+					// 디버깅: 픽셀 값 분포 확인
+					const uniqueValues = new Set(normalizedPixels);
+					const avgValue = normalizedPixels.reduce((a, b) => a + b, 0) / normalizedPixels.length;
+					console.log('총 픽셀 수:', normalizedPixels.length);
+					console.log('고유한 값의 개수:', uniqueValues.size);
+					console.log('평균 픽셀 값:', avgValue);
+					console.log('최소값:', Math.min(...normalizedPixels));
+					console.log('최대값:', Math.max(...normalizedPixels));
+					console.log('첫 10개 픽셀 값:', normalizedPixels.slice(0, 10));
 
 					resolve({
 						pixels: normalizedPixels,
@@ -86,7 +93,7 @@
 
 	async function getPrediction(pixels: number[]) {
 		try {
-			const response = await fetch(`${apiBase}/network${selectedNetwork}/predict`, {
+			const response = await fetch(`${apiBase}/network/predict`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -100,12 +107,11 @@
 
 			const result = await response.json();
 			if (result.error) {
-				// 백엔드에서 에러 포맷을 내려줄 때
 				error = result.error;
 				prediction = null;
 				return;
 			}
-			prediction = String(result.prediction);
+			prediction = String(result.result);
 		} catch (err) {
 			if (err instanceof Error) {
 				error = `예측 실패: ${err.message}. 백엔드 서버가 실행 중인지 확인하세요.`;
@@ -118,18 +124,7 @@
 </script>
 
 <main>
-	<h1>이미지 예측</h1>
-	<p>사진을 업로드하여 예측 결과를 확인하세요.</p>
-
-	<div class="network-selector">
-		<label for="network">네트워크 선택:</label>
-		<select id="network" bind:value={selectedNetwork}>
-			<option value="1">Network 1 (학습됨)</option>
-			<option value="2">Network 2 (학습 필요)</option>
-			<option value="3">Network 3 (초기화 필요)</option>
-		</select>
-		<span class="api-base">API: {apiBase}/network{selectedNetwork}/predict</span>
-	</div>
+	<h1>민재의 레전드 ai 세상</h1>
 
 	<div class="upload-area">
 		<label for="file-upload" class="custom-file-upload"> 이미지 선택 </label>
@@ -147,25 +142,10 @@
 	{#if originalImageUrl}
 		<div class="result-area">
 			<div class="image-container">
-				<h2>원본 사진</h2>
 				<img src={originalImageUrl} alt="업로드된 원본 이미지" />
 			</div>
 
-			{#if downscaledImageUrl}
-				<div class="image-container">
-					<h2>28x28 압축 사진</h2>
-					<img
-						src={downscaledImageUrl}
-						alt="28x28로 압축된 이미지"
-						class="pixelated"
-						width="112"
-						height="112"
-					/>
-				</div>
-			{/if}
-
 			<div class="prediction-container">
-				<h2>예측 결과</h2>
 				{#if prediction}
 					<p class="prediction-text">{prediction}</p>
 				{:else if !isLoading && !error}
@@ -233,15 +213,8 @@
 		margin-top: 1rem;
 	}
 
-	.pixelated {
-		image-rendering: pixelated;
-		image-rendering: -moz-crisp-edges;
-		image-rendering: crisp-edges;
-		border: 2px solid #555;
-	}
-
 	.prediction-text {
-		font-size: 1.5rem;
+		font-size: 5rem;
 		font-weight: bold;
 		color: #28a745;
 		margin-top: 1rem;
